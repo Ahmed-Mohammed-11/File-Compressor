@@ -1,34 +1,65 @@
 package org.example.utils;
 
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
+import java.util.Arrays;
 
 public class FileOperations {
 
-    public FileReader readFile(String path) {
-        FileReader reader = null;
+    public FileInputStream createFileInputStream(String path) {
         try{
-            reader = new FileReader(path);
-        }catch (Exception e){
+            return new FileInputStream(path);
+        }catch (FileNotFoundException e) {
             System.err.println("File not found");
-            System.exit(1);
+            throw new RuntimeException(e);
         }
-        return reader;
     }
 
-    public Character readByte(FileReader reader) {
-        Character c = null;
+    public FileOutputStream createFileOutputStream(String path) {
         try{
-            c = (char) reader.read();
-        }catch (Exception e){
-            System.err.println("Error reading file");
-            System.exit(1);
+            return new FileOutputStream(path);
+        }catch (FileNotFoundException e) {
+            System.err.println("File not found");
+            throw new RuntimeException(e);
         }
-        return c;
     }
 
-    public long getFileSize(String path) {
-        File file = new File(path);
-        return file.length();
+    public byte[] readNBytes(FileInputStream fileInputStream, Integer chunkLengthInBytes) {
+        byte[] chunk = new byte[chunkLengthInBytes];
+        try{
+            fileInputStream.read(chunk, 0, chunkLengthInBytes);
+        }catch (IOException e) {
+            System.out.println("Error reading file");
+            throw new RuntimeException(e);
+        }
+        return chunk;
     }
+
+    public void writeByte(FileOutputStream fileOutputStream, byte byteToWrite) {
+        try{
+            fileOutputStream.write(byteToWrite);
+        }catch (IOException e) {
+            System.out.println("Error writing to file");
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void closeFileInputStream(FileInputStream fileInputStream) {
+        try{
+            fileInputStream.close();
+        }catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void closeFileOutputStream(FileOutputStream fileOutputStream) {
+        try{
+            fileOutputStream.close();
+        }catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public long getFileSize(String path) { return new File(path).length(); }
+
+
 }

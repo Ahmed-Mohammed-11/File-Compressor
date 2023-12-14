@@ -1,7 +1,7 @@
 package org.example.huffman;
 
-public class DeCompress {
-    public DeCompress(String path) {
+public class HuffmanDecompression {
+    public HuffmanDecompression(String path) {
         System.out.println("Decompressing " + path);
     }
 }

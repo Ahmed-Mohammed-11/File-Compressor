@@ -1,19 +1,16 @@
 package org.example;
 
-import org.example.huffman.Compress;
-import org.example.huffman.DeCompress;
+import org.example.huffman.HuffmanCompression;
+import org.example.huffman.HuffmanDecompression;
 import org.example.utils.CharFrequecyCalculator;
 import org.example.utils.Constants;
 
-import java.util.Arrays;
-
 public class Main {
-    public static void main(String[] args){
+    public static void main(String[] args) {
         CharFrequecyCalculator charFrequecyCalculator = new CharFrequecyCalculator();
 
         // Check if the arguments are valid
-        if(!((args.length == 2 && args[0].equals(Constants.DECOMPRESS_CHOICE)) || (args.length == 3 && args[0].equals(Constants.COMPRESS_CHOICE))))
-        {
+        if (!((args.length == 2 && args[0].equals(Constants.DECOMPRESS_CHOICE)) || (args.length == 3 && args[0].equals(Constants.COMPRESS_CHOICE)))) {
             System.err.println(Constants.ARGUMENTS_FORMAT_COMPRESS + "\n" + Constants.ARGUMENTS_FORMAT_DECOMPRESS);
             System.exit(1);
         }
@@ -23,13 +20,13 @@ public class Main {
         String path = args[1];
 
         // start operations based on the choice
-        switch (choice){
+        switch (choice) {
             case Constants.COMPRESS_CHOICE:
                 Integer bytes = Integer.parseInt(args[2]);
-                new Compress(path, bytes);
+                new HuffmanCompression(path, bytes);
                 break;
             case Constants.DECOMPRESS_CHOICE:
-                new DeCompress(path);
+                new HuffmanDecompression(path);
                 break;
         }
     }

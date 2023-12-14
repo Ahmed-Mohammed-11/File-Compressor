@@ -1,41 +1,36 @@
 package org.example.utils;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
-import org.example.utils.Constants;
 
 public class CharFrequecyCalculator {
-    private FileOperations fileOperations = new FileOperations();
-    public HashMap calculateCharFreq(String path, Integer bytes){
-        FileReader reader = fileOperations.readFile(path);
-        HashMap<String, Long> frequencyMap = new HashMap<String, Long>();
+    private final FileOperations fileOperations = new FileOperations();
+    public HashMap calculateCharFreq(String path, Integer chunkLengthInBytes) {
+        FileInputStream fileInputStream = fileOperations.createFileInputStream(path);
+        //using Bytebuffer to be able to use it as a key in the hashmap (byte[] can't be used as a key as comparison is done by reference not by value)
+        HashMap<ByteBuffer, Long> frequencyMap = new HashMap<ByteBuffer, Long>();
         Long fileSize = fileOperations.getFileSize(path);
+        Long numberOfChuncks = fileSize / chunkLengthInBytes;
+        Long remainingBytesCount = fileSize % chunkLengthInBytes;
+        byte[] chunk = new byte[chunkLengthInBytes];
 
-        if(bytes > fileSize) bytes = fileSize.intValue();
-
-        Long remainder = fileSize % bytes;
-        for(int i = 0; i < fileSize / bytes; i++){
-            String string = "";
-            for(int j = 0; j < bytes; j++){
-                Character character = fileOperations.readByte(reader);
-                if(character == null) break;
-                string += character;
-            }
-            frequencyMap.put(string, frequencyMap.getOrDefault(string, 0L) + 1);
+        //loop over the file and construct the chuck then add this chuck to the freqency map
+        for (int i = 0 ; i < numberOfChuncks ; i ++) {
+            chunk = fileOperations.readNBytes(fileInputStream, chunkLengthInBytes);
+            frequencyMap.put(ByteBuffer.wrap(chunk), frequencyMap.getOrDefault(ByteBuffer.wrap(chunk), 0L) + 1L);
         }
 
-
-        // read the remaining bytes if any
-        if(remainder > 0){
-            String str = "";
-            for(int i = 0; i < remainder; i++){
-                Character character = fileOperations.readByte(reader);
-                if(character == null) break;
-                str += character;
-            }
-            frequencyMap.put(str, frequencyMap.getOrDefault(str, 0L) + 1);
+        //if some bytes remain (file size is not divisible by chunk size)
+        if(remainingBytesCount > 0){
+            byte[] chunkOfRemainingBytes = new byte[remainingBytesCount.intValue()];
+            chunkOfRemainingBytes = fileOperations.readNBytes(fileInputStream, remainingBytesCount.intValue());
+            frequencyMap.put(ByteBuffer.wrap(chunkOfRemainingBytes), 1L);
         }
+
+        fileOperations.closeFileInputStream(fileInputStream);
         return frequencyMap;
     }
 }
