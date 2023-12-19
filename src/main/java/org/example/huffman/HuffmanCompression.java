@@ -35,8 +35,10 @@ public class HuffmanCompression {
         Map<ByteArray, String> codes = new HashMap<>();
         //calculate the prefix codes for each characterSet
         calculatePrefixCodes(root, "", codes);
+        if(freqMap.size() == 1)
+            codes.put(freqMap.keySet().iterator().next(), "0");
         //write the encoded text to the file
-        writeEncodedTextToFile(inputFilePath, chunkLengthInBytes, codes, outputFilePath);
+        writeEncodedTextToFile(inputFilePath, chunkLengthInBytes, codes, outputFilePath, root);
     }
 
     private void constructMinHeap(Map<ByteArray, Long> freqMap, Queue<CharFreqNode> queue) {
@@ -51,6 +53,10 @@ public class HuffmanCompression {
 
     private CharFreqNode buildHuffmanTree(Queue<CharFreqNode> queue) {
         CharFreqNode root = null;
+        if(queue.size() == 1){
+            root = queue.poll();
+            return root;
+        }
         while (queue.size() > 1) {
             // extract the two nodes with the lowest frequencies
             // and create a new node with the sum of their frequencies
@@ -79,13 +85,13 @@ public class HuffmanCompression {
         calculatePrefixCodes(root.right, code + "1", codes);
     }
 
-    private void writeEncodedTextToFile(String inputFilePath, int chunkLengthInBytes, Map<ByteArray, String> codes, String outputFilePAth) {
+    private void writeEncodedTextToFile(String inputFilePath, int chunkLengthInBytes, Map<ByteArray, String> codes, String outputFilePAth, CharFreqNode root) {
         fileInputStream = fileOperations.createFileInputStream(inputFilePath);
         fileOutputStream = fileOperations.createFileOutputStream(outputFilePAth);
         FileOperations.setFileSize(inputFilePath);
         Long fileSize = FileOperations.getFileSize();
         // write the header information to the file including uncompressed file size, header size and the prefix codes tree
-        writeHeaderToFile(fileOutputStream, codes, chunkLengthInBytes);
+        writeHeaderToFile(fileOutputStream, chunkLengthInBytes, root);
         // read bigger chunk from memory to avoid reading from disk multiple times (fast read)
         int chunkLengthToReadFromFile = FileOperations.calculateChunkLengthToRead(chunkLengthInBytes);
         //loop over the file and construct the chuck then add this chuck to the frequency map
@@ -98,16 +104,28 @@ public class HuffmanCompression {
         fileOperations.closeFileOutputStream(fileOutputStream);
     }
 
-    private void writeHeaderToFile(FileOutputStream fileOutputStream, Map<ByteArray, String> codes, int chunkLengthInBytes) {
+    private void writeHeaderToFile(FileOutputStream fileOutputStream, int chunkLengthInBytes, CharFreqNode root) {
         //write the uncompressed file size to the file
+        String treeTraversedPostFix = postFix(root) + "0";
+        int treeTraversedPostFixLength = treeTraversedPostFix.length();
+
+        /*
+        header contains the size of
+        * 1- uncompressed file size
+        * 2- header size
+        * 3- chunk length
+        * 4- tree traversed post fix
+        * */
+
+        long headerSize =  2 * (Long.SIZE / Byte.SIZE) + (Integer.SIZE / Byte.SIZE) + (long) treeTraversedPostFixLength;
         //write file size to the file
         fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertLongToByteArray(FileOperations.getFileSize()));
         //write the header size to the file
-        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertIntToByteArray(codes.size() * (chunkLengthInBytes + 1)));
-        //write the prefix codes to the file
-        for (Map.Entry<ByteArray, String> entry : codes.entrySet()) {
-            fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(entry.getValue()));
-        }
+        fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertLongToByteArray(headerSize));
+        //write the chunk length to the file
+        fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertIntToByteArray(chunkLengthInBytes));
+        //write the tree to the file
+        fileOperations.writeByteArray(fileOutputStream , treeTraversedPostFix.getBytes());
     }
 
     private void handleChunk(int chunkLengthToReadFromFile, int chunkLengthInBytes, Map<ByteArray, String> codes) {
@@ -133,10 +151,29 @@ public class HuffmanCompression {
             chunk = new ByteArray(Arrays.copyOfRange(chuckFromFile, chunkLengthToReadFromFile - chunkLengthToReadFromFile % chunkLengthInBytes, chunkLengthToReadFromFile));
             code.append(codes.get(chunk));
             fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(code.toString()));
+            return ;
         }
 
-        if (code.length() > 0)
+        if (code.length() > 0) {
             fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(code.toString()));
+        }
+    }
+
+    private void printTree(CharFreqNode root, int level) {
+        if (root == null) return;
+        printTree(root.right, level + 1);
+        if (root.chunkOfBytes != null)
+            System.out.println(Arrays.toString(root.chunkOfBytes.bytes) + " " + root.freq);
+        printTree(root.left, level + 1);
+    }
+
+    private String postFix(CharFreqNode root) {
+        if (root == null) return "";
+        if (root.left == null && root.right == null) {
+            return "1" + byteArrayOperations.convertByteArrayToString(root.chunkOfBytes.bytes);
+        } else {
+            return postFix(root.left) + postFix(root.right) + "0" ;
+        }
     }
 
 

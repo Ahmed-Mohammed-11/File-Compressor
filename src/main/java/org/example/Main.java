@@ -33,7 +33,8 @@ public class Main {
 
 
         //log time
-        long startTime = System.currentTimeMillis();
+        long startTime = 0L;
+        long endTime = 0L;
         // start operations based on the choice
         switch (choice) {
             case COMPRESS_CHOICE:
@@ -41,18 +42,24 @@ public class Main {
                 String outputFileName = ID + "." + chunkLengthInBytes + "." + inputFileName + ".hc";
                 outputFilePath = filePathWithoutFileName + outputFileName;
                 System.out.println("Compressing " + inputFilePath + " to " + outputFilePath + " ... ");
+                startTime = System.currentTimeMillis();
                 new HuffmanCompression(inputFilePath, chunkLengthInBytes, outputFilePath);
+                endTime = System.currentTimeMillis();
+                System.out.println("Time taken to compress the file: " + (endTime - startTime) / 1000.0 + " seconds");
+                Long uncompressedFileSize = FileOperations.getFileSize();
+                FileOperations.setFileSize(outputFilePath);
+                Long compressedFileSize = FileOperations.getFileSize();
+                System.out.println("Compression ratio: " + (double) compressedFileSize / uncompressedFileSize);
                 break;
             case DECOMPRESS_CHOICE:
+                startTime = System.currentTimeMillis();
                 new HuffmanDecompression(inputFilePath);
+                endTime = System.currentTimeMillis();
+                System.out.println("Time taken to decompress the file: " + (endTime - startTime) / 1000.0 + " seconds");
                 break;
+            default:
+                System.err.println("Invalid choice");
+                System.exit(1);
         }
-        //log time
-        long endTime = System.currentTimeMillis();
-        System.out.println("Time taken to compress the file: " + (endTime - startTime) / 1000.0 + " seconds");
-        Long uncompressedFileSize = FileOperations.getFileSize();
-        FileOperations.setFileSize(outputFilePath);
-        Long compressedFileSize = FileOperations.getFileSize();
-        System.out.println("Compression ratio: " + (double) compressedFileSize / uncompressedFileSize);
     }
 }

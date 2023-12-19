@@ -28,6 +28,7 @@ public class CharFrequencyCalculator {
         if (fileSize % chunkLengthToReadFromFile > 0)
             handleChunk(frequencyMap, (int) (fileSize % chunkLengthToReadFromFile), chunkLengthInBytes);
 
+        System.out.println(frequencyMap.size());
         fileOperations.closeFileInputStream(fileInputStream);
         return frequencyMap;
 

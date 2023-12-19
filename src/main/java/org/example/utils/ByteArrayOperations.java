@@ -1,5 +1,6 @@
 package org.example.utils;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class ByteArrayOperations {
@@ -24,19 +25,29 @@ public class ByteArrayOperations {
         return allBytesToWrite;
     }
 
-    public byte[] convertLongToByteArray(Long fileSize) {
-        byte[] longInBytes = new byte[8];
-        for (int i = 0; i < 8; i++) {
-            longInBytes[i] = (byte) (fileSize >>> (i * 8));
-        }
-        return longInBytes;
+    public byte[] convertLongToByteArray(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public long convertByteArrayToLong(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(bytes);
+        buffer.flip();
+        return buffer.getLong();
     }
 
     public byte[] convertIntToByteArray(int i) {
-        byte[] intInBytes = new byte[4];
-        for (int j = 0; j < 4; j++) {
-            intInBytes[j] = (byte) (i >>> (j * 8));
-        }
-        return intInBytes;
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.putInt(i);
+        return buffer.array();
+    }
+
+    public int convertByteArrayToInt(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.put(bytes);
+        buffer.flip();
+        return buffer.getInt();
     }
 }
