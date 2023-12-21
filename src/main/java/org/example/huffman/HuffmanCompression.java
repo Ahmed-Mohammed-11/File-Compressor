@@ -2,9 +2,7 @@ package org.example.huffman;
 
 import org.example.utils.ByteArray;
 import org.example.utils.ByteArrayOperations;
-import org.example.utils.CharFrequencyCalculator;
 import org.example.utils.FileOperations;
-
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.*;
@@ -35,10 +33,10 @@ public class HuffmanCompression {
         Map<ByteArray, String> codes = new HashMap<>();
         //calculate the prefix codes for each characterSet
         calculatePrefixCodes(root, "", codes);
-        if(freqMap.size() == 1)
+        if (freqMap.size() == 1)
             codes.put(freqMap.keySet().iterator().next(), "0");
         //write the encoded text to the file
-        writeEncodedTextToFile(inputFilePath, chunkLengthInBytes, codes, outputFilePath, root);
+        writeEncodedTextToFile(inputFilePath, chunkLengthInBytes, codes, freqMap, outputFilePath);
     }
 
     private void constructMinHeap(Map<ByteArray, Long> freqMap, Queue<CharFreqNode> queue) {
@@ -53,7 +51,7 @@ public class HuffmanCompression {
 
     private CharFreqNode buildHuffmanTree(Queue<CharFreqNode> queue) {
         CharFreqNode root = null;
-        if(queue.size() == 1){
+        if (queue.size() == 1) {
             root = queue.poll();
             return root;
         }
@@ -85,97 +83,114 @@ public class HuffmanCompression {
         calculatePrefixCodes(root.right, code + "1", codes);
     }
 
-    private void writeEncodedTextToFile(String inputFilePath, int chunkLengthInBytes, Map<ByteArray, String> codes, String outputFilePAth, CharFreqNode root) {
+    private void writeEncodedTextToFile(String inputFilePath, int chunkLengthInBytes, Map<ByteArray, String> codes, Map<ByteArray, Long> freqMap, String outputFilePAth) {
         fileInputStream = fileOperations.createFileInputStream(inputFilePath);
         fileOutputStream = fileOperations.createFileOutputStream(outputFilePAth);
         FileOperations.setFileSize(inputFilePath);
         Long fileSize = FileOperations.getFileSize();
         // write the header information to the file including uncompressed file size, header size and the prefix codes tree
-        writeHeaderToFile(fileOutputStream, chunkLengthInBytes, root);
+        writeHeaderToFile(fileOutputStream, chunkLengthInBytes, codes, freqMap);
         // read bigger chunk from memory to avoid reading from disk multiple times (fast read)
-        int chunkLengthToReadFromFile = FileOperations.calculateChunkLengthToRead(chunkLengthInBytes);
+        int chunkLengthToReadFromFile = fileOperations.calculateChunkLengthToRead(chunkLengthInBytes, fileSize);
         //loop over the file and construct the chuck then add this chuck to the frequency map
+        String code = "";
         for (int i = 0; i < fileSize / chunkLengthToReadFromFile; i++) {
-            handleChunk(chunkLengthToReadFromFile, chunkLengthInBytes, codes);
+            code = handleChunk(chunkLengthToReadFromFile, chunkLengthInBytes, codes, code);
         }
         if (fileSize % chunkLengthToReadFromFile > 0)
-            handleChunk((int) (fileSize % chunkLengthToReadFromFile), chunkLengthInBytes, codes);
+            code = handleChunk((int) (fileSize % chunkLengthToReadFromFile), chunkLengthInBytes, codes, code);
+
+        if (!code.isEmpty())
+            fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertBinaryStringToByteArray(code));
+
         fileOperations.closeFileInputStream(fileInputStream);
         fileOperations.closeFileOutputStream(fileOutputStream);
     }
 
-    private void writeHeaderToFile(FileOutputStream fileOutputStream, int chunkLengthInBytes, CharFreqNode root) {
-        //write the uncompressed file size to the file
-        String treeTraversedPostFix = postFix(root) + "0";
-        int treeTraversedPostFixLength = treeTraversedPostFix.length();
+    private void writeHeaderToFile(FileOutputStream fileOutputStream, int chunkLengthInBytes, Map<ByteArray, String> codes, Map<ByteArray, Long> freqMap) {
 
         /*
         header contains the size of
         * 1- uncompressed file size
         * 2- header size
         * 3- chunk length
-        * 4- tree traversed post fix
+        * 4- huffman codes map entry that contains a chunk less than the chunk length
+        * 5- huffman codes map
         * */
 
-        long headerSize =  2 * (Long.SIZE / Byte.SIZE) + (Integer.SIZE / Byte.SIZE) + (long) treeTraversedPostFixLength;
+        //number of bits in compressed file
+        long numberOfBitsInCompressedFile = 0;
+        for (Map.Entry<ByteArray, Long> entry : freqMap.entrySet()) {
+            numberOfBitsInCompressedFile += codes.get(entry.getKey()).length() * entry.getValue();
+        }
+        long codesMapSize = 0;
+        int entryNumberWithChunkLessThanChunkLength = -1;
+        int smallChunkFinder = 0;
+        for (Map.Entry<ByteArray, String> entry : codes.entrySet()) {
+            smallChunkFinder++;
+            if (entry.getKey().bytes.length < chunkLengthInBytes) {
+                entryNumberWithChunkLessThanChunkLength = smallChunkFinder;
+                codesMapSize += Integer.SIZE / Byte.SIZE;
+            }
+            codesMapSize += entry.getKey().bytes.length + 1 + entry.getValue().length();
+        }
+
+        long headerSize = 3 * (Long.SIZE / Byte.SIZE) + 2 * (Integer.SIZE / Byte.SIZE) + codesMapSize;
+
         //write file size to the file
-        fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertLongToByteArray(FileOperations.getFileSize()));
+        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertLongToByteArray(FileOperations.getFileSize()));
+        //write the number of bits in compressed file to the file
+        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertLongToByteArray(numberOfBitsInCompressedFile));
         //write the header size to the file
-        fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertLongToByteArray(headerSize));
+        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertLongToByteArray(headerSize));
         //write the chunk length to the file
-        fileOperations.writeByteArray(fileOutputStream , byteArrayOperations.convertIntToByteArray(chunkLengthInBytes));
-        //write the tree to the file
-        fileOperations.writeByteArray(fileOutputStream , treeTraversedPostFix.getBytes());
+        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertIntToByteArray(chunkLengthInBytes));
+        //write the entry number with chunk less than chunk length to the file
+        fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertIntToByteArray(entryNumberWithChunkLessThanChunkLength));
+
+        //write the hashmap of codes to the file efficiently
+
+        smallChunkFinder = 0;
+        for (Map.Entry<ByteArray, String> entry : codes.entrySet()) {
+            smallChunkFinder++;
+            if (smallChunkFinder == entryNumberWithChunkLessThanChunkLength) {
+                byte[] smallChunkLength = byteArrayOperations.convertIntToByteArray(entry.getKey().bytes.length);
+                fileOperations.writeByteArray(fileOutputStream, smallChunkLength);
+            }
+            fileOperations.writeByteArray(fileOutputStream, entry.getKey().bytes);
+            byte huff = (byte) (entry.getValue().length());
+            byte[] huffmanCodeLength = byteArrayOperations.convertByteToByteArray(huff);
+            fileOperations.writeByteArray(fileOutputStream, huffmanCodeLength);
+            fileOperations.writeByteArray(fileOutputStream, entry.getValue().getBytes());
+        }
     }
 
-    private void handleChunk(int chunkLengthToReadFromFile, int chunkLengthInBytes, Map<ByteArray, String> codes) {
+    private String handleChunk(int chunkLengthToReadFromFile, int chunkLengthInBytes, Map<ByteArray, String> codes, String code) {
         byte[] chuckFromFile;
         ByteArray chunk;
-        StringBuilder code = new StringBuilder();
+        StringBuilder codeBuilder = new StringBuilder(code);
         chuckFromFile = fileOperations.readNBytes(fileInputStream, chunkLengthToReadFromFile);
         for (int j = 0; j < chunkLengthToReadFromFile / chunkLengthInBytes; j++) {
             //divide the chuck into smaller chunks of size chunkLengthInBytes in efficient way
             chunk = new ByteArray(Arrays.copyOfRange(chuckFromFile, j * chunkLengthInBytes, (j + 1) * chunkLengthInBytes));
-            code.append(codes.get(chunk));
-            if (code.length() > FILE_WRITE_CHUNK_SIZE_THRESHOLD) {
-                String codeToWrite = code.substring(0, FILE_WRITE_CHUNK_SIZE_THRESHOLD);
-                fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(codeToWrite));
-                code = new StringBuilder(code.substring(FILE_WRITE_CHUNK_SIZE_THRESHOLD));
-            } else if (code.length() == FILE_WRITE_CHUNK_SIZE_THRESHOLD) {
-                fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(code.toString()));
-                code = new StringBuilder();
+            codeBuilder.append(codes.get(chunk));
+            if (codeBuilder.length() > FILE_WRITE_CHUNK_SIZE_THRESHOLD) {
+                String codeToWrite = codeBuilder.substring(0, FILE_WRITE_CHUNK_SIZE_THRESHOLD);
+                fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertBinaryStringToByteArray(codeToWrite));
+                codeBuilder = new StringBuilder(codeBuilder.substring(FILE_WRITE_CHUNK_SIZE_THRESHOLD));
+            } else if (codeBuilder.length() == FILE_WRITE_CHUNK_SIZE_THRESHOLD) {
+                fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertBinaryStringToByteArray(codeBuilder.toString()));
+                codeBuilder = new StringBuilder();
             }
         }
         //handle if file size is less than predetermined chunk
         if (chunkLengthToReadFromFile % chunkLengthInBytes > 0) {
             chunk = new ByteArray(Arrays.copyOfRange(chuckFromFile, chunkLengthToReadFromFile - chunkLengthToReadFromFile % chunkLengthInBytes, chunkLengthToReadFromFile));
-            code.append(codes.get(chunk));
-            fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(code.toString()));
-            return ;
+            codeBuilder.append(codes.get(chunk));
+            fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertBinaryStringToByteArray(code));
         }
-
-        if (code.length() > 0) {
-            fileOperations.writeByteArray(fileOutputStream, byteArrayOperations.convertStringToByteArray(code.toString()));
-        }
+        return codeBuilder.toString();
     }
-
-    private void printTree(CharFreqNode root, int level) {
-        if (root == null) return;
-        printTree(root.right, level + 1);
-        if (root.chunkOfBytes != null)
-            System.out.println(Arrays.toString(root.chunkOfBytes.bytes) + " " + root.freq);
-        printTree(root.left, level + 1);
-    }
-
-    private String postFix(CharFreqNode root) {
-        if (root == null) return "";
-        if (root.left == null && root.right == null) {
-            return "1" + byteArrayOperations.convertByteArrayToString(root.chunkOfBytes.bytes);
-        } else {
-            return postFix(root.left) + postFix(root.right) + "0" ;
-        }
-    }
-
 
     static class CharFreqNode {
         ByteArray chunkOfBytes;

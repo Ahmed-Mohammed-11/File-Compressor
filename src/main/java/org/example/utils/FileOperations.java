@@ -1,7 +1,6 @@
 package org.example.utils;
 
 import java.io.*;
-import java.util.Arrays;
 
 import static org.example.utils.Constants.FILE_READ_CHUNK_SIZE_THRESHOLD;
 
@@ -17,17 +16,17 @@ public class FileOperations {
         fileSize = new File(path).length();
     }
 
-    public static int calculateChunkLengthToRead(int chunkLengthInBytes) {
-        int chunkLengthToReadFromFile;
-        chunkLengthToReadFromFile =
-                (fileSize > FILE_READ_CHUNK_SIZE_THRESHOLD) ? (FILE_READ_CHUNK_SIZE_THRESHOLD) : fileSize.intValue();
-        if (chunkLengthToReadFromFile != fileSize.intValue() && chunkLengthToReadFromFile % chunkLengthInBytes != 0)
-            chunkLengthToReadFromFile -= chunkLengthToReadFromFile % chunkLengthInBytes;
-        return chunkLengthToReadFromFile;
-    }
-
     public static String getFileName(File file) {
         return file.getName();
+    }
+
+    public int calculateChunkLengthToRead(int chunkLengthInBytes, long fileSize) {
+        int chunkLengthToReadFromFile;
+        chunkLengthToReadFromFile =
+                (fileSize > FILE_READ_CHUNK_SIZE_THRESHOLD) ? (FILE_READ_CHUNK_SIZE_THRESHOLD) : (int) fileSize;
+        if (chunkLengthToReadFromFile != fileSize && chunkLengthToReadFromFile % chunkLengthInBytes != 0)
+            chunkLengthToReadFromFile -= chunkLengthToReadFromFile % chunkLengthInBytes;
+        return chunkLengthToReadFromFile;
     }
 
     public FileInputStream createFileInputStream(String path) {
@@ -52,9 +51,12 @@ public class FileOperations {
         byte[] chunk = new byte[chunkSize];
 
         try {
-            fileInputStream.read(chunk, 0, chunkSize);
+            int result = fileInputStream.read(chunk, 0, chunkSize);
+            if (result == -1) {
+                throw new RuntimeException("End of file reached");
+            }
         } catch (IOException e) {
-            System.out.println("Error reading file");
+            System.err.println("Error reading file");
             throw new RuntimeException(e);
         }
         return chunk;

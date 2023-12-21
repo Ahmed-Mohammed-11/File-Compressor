@@ -2,7 +2,6 @@ package org.example;
 
 import org.example.huffman.HuffmanCompression;
 import org.example.huffman.HuffmanDecompression;
-import org.example.utils.CharFrequencyCalculator;
 import org.example.utils.Constants;
 import org.example.utils.FileOperations;
 
@@ -12,7 +11,6 @@ import static org.example.utils.Constants.*;
 
 public class Main {
     public static void main(String[] args) {
-        CharFrequencyCalculator charFrequencyCalculator = new CharFrequencyCalculator();
         FileOperations fileOperations = new FileOperations();
         // Check if the arguments are valid
         if (!((args.length == 2 && args[0].equals(DECOMPRESS_CHOICE)) || (args.length == 3 && args[0].equals(COMPRESS_CHOICE)))) {
@@ -29,15 +27,19 @@ public class Main {
         String inputFilePath = args[1];
         String filePathWithoutFileName = fileOperations.getFilePath(file);
         String inputFileName = FileOperations.getFileName(file);
-        String outputFilePath = "";
+        String outputFilePath;
 
 
         //log time
-        long startTime = 0L;
-        long endTime = 0L;
+        long startTime;
+        long endTime;
         // start operations based on the choice
         switch (choice) {
             case COMPRESS_CHOICE:
+                if(inputFilePath.endsWith(".hc")){
+                    System.err.println("Invalid file type");
+                    System.exit(1);
+                }
                 int chunkLengthInBytes = Integer.parseInt(args[2]);
                 String outputFileName = ID + "." + chunkLengthInBytes + "." + inputFileName + ".hc";
                 outputFilePath = filePathWithoutFileName + outputFileName;
@@ -52,8 +54,15 @@ public class Main {
                 System.out.println("Compression ratio: " + (double) compressedFileSize / uncompressedFileSize);
                 break;
             case DECOMPRESS_CHOICE:
+                if(!inputFilePath.endsWith(".hc")){
+                    System.err.println("Invalid file type");
+                    System.exit(1);
+                }
+                //remove .hc extension
+                outputFilePath = filePathWithoutFileName + "extracted" + "." + inputFileName.substring(0, inputFileName.length() - COMPRESSED_FILE_EXTENSION.length());
+                System.out.println("Decompressing " + inputFilePath + " to " + outputFilePath + " ... ");
                 startTime = System.currentTimeMillis();
-                new HuffmanDecompression(inputFilePath);
+                new HuffmanDecompression(inputFilePath, outputFilePath);
                 endTime = System.currentTimeMillis();
                 System.out.println("Time taken to decompress the file: " + (endTime - startTime) / 1000.0 + " seconds");
                 break;

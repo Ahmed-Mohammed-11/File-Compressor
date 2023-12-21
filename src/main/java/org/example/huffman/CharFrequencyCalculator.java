@@ -1,4 +1,7 @@
-package org.example.utils;
+package org.example.huffman;
+
+import org.example.utils.ByteArray;
+import org.example.utils.FileOperations;
 
 import java.io.FileInputStream;
 import java.util.Arrays;
@@ -17,7 +20,7 @@ public class CharFrequencyCalculator {
         FileOperations.setFileSize(inputFilePath);
         Long fileSize = FileOperations.getFileSize();
         // read bigger chunk from memory to avoid reading from disk multiple times (fast read)
-        int chunkLengthToReadFromFile = FileOperations.calculateChunkLengthToRead(chunkLengthInBytes);
+        int chunkLengthToReadFromFile = fileOperations.calculateChunkLengthToRead(chunkLengthInBytes, fileSize);
 
         // loop over the file and construct the chuck then add this chuck to the frequency map
         for (int i = 0; i < fileSize / chunkLengthToReadFromFile; i++) {
@@ -28,7 +31,6 @@ public class CharFrequencyCalculator {
         if (fileSize % chunkLengthToReadFromFile > 0)
             handleChunk(frequencyMap, (int) (fileSize % chunkLengthToReadFromFile), chunkLengthInBytes);
 
-        System.out.println(frequencyMap.size());
         fileOperations.closeFileInputStream(fileInputStream);
         return frequencyMap;
 
